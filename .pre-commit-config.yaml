@@ -1,0 +1,23 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+    - id: check-added-large-files
+    - id: trailing-whitespace
+    - id: check-yaml
+    - id: detect-private-key
+- repo: https://github.com/python-jsonschema/check-jsonschema
+  rev: 0.29.2
+  hooks:
+    - id: check-github-workflows
+      args: ["--verbose"]
+    - id: check-github-actions
+      args: ["--verbose"]
+- repo: https://github.com/dnephin/pre-commit-golang
+  rev: v0.5.1
+  hooks:
+    - id: go-fmt
+    # - id: go-vet
+    # - id: golangci-lint
+    # - id: go-imports
+    - id: go-mod-tidy
