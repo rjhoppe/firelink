@@ -37,32 +37,6 @@ type CheckForBookAPI struct {
 			ApplicationOctetStream      string `json:"application/octet-stream"`
 		} `json:"formats,omitempty"`
 		DownloadCount int `json:"download_count"`
-		Formats0      struct {
-			TextHTML                    string `json:"text/html"`
-			TextHTMLCharsetUtf8         string `json:"text/html; charset=utf-8"`
-			ApplicationEpubZip          string `json:"application/epub+zip"`
-			ApplicationXMobipocketEbook string `json:"application/x-mobipocket-ebook"`
-			TextPlainCharsetUtf8        string `json:"text/plain; charset=utf-8"`
-			ApplicationRdfXML           string `json:"application/rdf+xml"`
-			ImageJpeg                   string `json:"image/jpeg"`
-			ApplicationOctetStream      string `json:"application/octet-stream"`
-			TextPlainCharsetUsASCII     string `json:"text/plain; charset=us-ascii"`
-		} `json:"formats,omitempty"`
-		Formats1 struct {
-			TextHTML                string `json:"text/html"`
-			AudioOgg                string `json:"audio/ogg"`
-			AudioMp4                string `json:"audio/mp4"`
-			AudioMpeg               string `json:"audio/mpeg"`
-			TextPlainCharsetUsASCII string `json:"text/plain; charset=us-ascii"`
-			ApplicationRdfXML       string `json:"application/rdf+xml"`
-		} `json:"formats,omitempty"`
-		Formats2 struct {
-			TextPlainCharsetUsASCII string `json:"text/plain; charset=us-ascii"`
-			TextHTMLCharsetUsASCII  string `json:"text/html; charset=us-ascii"`
-			AudioMpeg               string `json:"audio/mpeg"`
-			ApplicationRdfXML       string `json:"application/rdf+xml"`
-			ApplicationOctetStream  string `json:"application/octet-stream"`
-		} `json:"formats,omitempty"`
 	} `json:"results"`
 }
 

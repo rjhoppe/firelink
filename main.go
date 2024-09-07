@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"os"
@@ -10,8 +9,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rjhoppe/firelink/bartender"
 	"github.com/rjhoppe/firelink/books"
-	"golang.ngrok.com/ngrok"
-	"golang.ngrok.com/ngrok/config"
 )
 
 func main() {
@@ -63,18 +60,21 @@ func main() {
 			return
 		})
 
-	ctx := context.Background()
-	l, err := ngrok.Listen(ctx,
-		config.HTTPEndpoint(),
-		ngrok.WithAuthtokenFromEnv(),
-	)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// ctx := context.Background()
+	// l, err := ngrok.Listen(ctx,
+	// 	config.HTTPEndpoint(),
+	// 	ngrok.WithAuthtokenFromEnv(),
+	// )
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
 
-	log.Printf("public address: %s\n", l.Addr())
+	// log.Printf("public address: %s\n", l.Addr())
 
-	if err := r.RunListener(l); err != nil {
-		log.Fatalln(err)
-	}
+	// if err := r.RunListener(l); err != nil {
+	// 	log.Fatalln(err)
+	// }
+
+	// for testing without ngrok
+	r.Run(":8080")
 }
