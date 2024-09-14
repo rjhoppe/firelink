@@ -17,8 +17,8 @@ func main() {
 		log.Fatalf("Error loading .env file: %s", err)
 	}
 
-	username := os.Getenv("USERNAME")
-	password := os.Getenv("PASSWORD")
+	username := os.Getenv("GIN_USERNAME")
+	password := os.Getenv("GIN_PASSWORD")
 
 	r := gin.Default()
 	r.POST("/help", gin.BasicAuth(gin.Accounts{
