@@ -2,7 +2,9 @@ package bartender
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rjhoppe/firelink/utils"
@@ -110,7 +112,7 @@ func gatherIngredients(o GetRandomDrinkAPI) Ingredients {
 	}
 }
 
-func MixMeADrink(c *gin.Context, liquor string) {
+func getDrink(c *gin.Context) GetRandomDrinkAPI {
 	var drink GetRandomDrinkAPI
 
 	url := "https://www.thecocktaildb.com/api/json/v1/1/random.php"
@@ -121,13 +123,20 @@ func MixMeADrink(c *gin.Context, liquor string) {
 	if err := json.NewDecoder(resp.Body).Decode(&drink); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"body": "Error decoding api response body"})
 	}
-	// if "strAlcoholic" != "Alcoholic" || strCategory" == "Beer" => reroll
+
+	if drink.Drinks[0].StrAlcoholic != "Alcoholic" || drink.Drinks[0].StrCategory == "Beer" {
+		fmt.Println("Invalid drink! Rerolling...")
+		getDrink(c)
+	}
+	return drink
+}
+
+func GetRandomDrink(c *gin.Context, cache *Cache) {
+	drink := getDrink(c)
 	// parse values from json response body
-	IngredientsData := gatherIngredients(drink)
-	ingredientsList := utils.GetStructVals(IngredientsData)
-
+	ingredientsData := gatherIngredients(drink)
+	ingredientsList := utils.GetStructVals(ingredientsData)
 	// "1 oz Tequila"
-
 	jsonResp := DrinkResponse{
 		Title:        "Drink of the Day",
 		Name:         drink.Drinks[0].StrDrink,
@@ -135,5 +144,8 @@ func MixMeADrink(c *gin.Context, liquor string) {
 		Ingredients:  ingredientsList,
 		Instructions: drink.Drinks[0].StrInstructions,
 	}
+	// ttl working
+	ttl := time.Hour * 24 * 15
+	cache.Set(jsonResp.Name, jsonResp, ttl)
 	c.JSON(http.StatusOK, jsonResp)
 }

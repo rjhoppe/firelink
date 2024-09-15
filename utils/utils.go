@@ -27,7 +27,9 @@ func GetStructVals(s interface{}) string {
 	for i := 0; i < t.NumField(); i++ {
 		// field := t.Field(i).Name
 		value := v.Field(i)
-		result.WriteString(fmt.Sprintf("%v, ", value.Interface()))
+		if value.String() != " " {
+			result.WriteString(fmt.Sprintf("%v, ", value.Interface()))
+		}
 	}
 	return result.String()
 }

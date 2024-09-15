@@ -21,6 +21,8 @@ func main() {
 	password := os.Getenv("GIN_PASSWORD")
 
 	r := gin.Default()
+	DrinkCache := bartender.NewCache(15) // Set cache capacity
+
 	r.POST("/help", gin.BasicAuth(gin.Accounts{
 		username: password}),
 		func(c *gin.Context) {
@@ -47,12 +49,34 @@ func main() {
 			return
 		})
 
-	r.POST("/bartender/:liquor", gin.BasicAuth(gin.Accounts{
+	r.GET("/bartender/random", gin.BasicAuth(gin.Accounts{
 		username: password}),
 		func(c *gin.Context) {
-			liquor := c.Param("liquor")
-			bartender.MixMeADrink(c, liquor)
+			bartender.GetRandomDrink(c, DrinkCache)
 		})
+
+	// Saves last drink recipe to DB
+	// r.POST("/bartender/save", gin.BasicAuth(gin.Accounts{
+	// 	username: password}),
+	// 	func(c *gin.Context) {
+	// 		drink := c.Param("drink")
+	// 		bartender.SaveDrink(c, liquor)
+	// 	})
+
+	// Returns the history for last 15 drinks
+	r.GET("/bartender/history", gin.BasicAuth(gin.Accounts{
+		username: password}),
+		func(c *gin.Context) {
+			cachedDrinks := DrinkCache.GetAll()
+			c.JSON(http.StatusOK, cachedDrinks)
+		})
+
+	// r.POST("/bartender/:liquor", gin.BasicAuth(gin.Accounts{
+	// 	username: password}),
+	// 	func(c *gin.Context) {
+	// 		liquor := c.Param("liquor")
+	// 		bartender.MixMeADrink(c, liquor)
+	// 	})
 
 	r.POST("/network", gin.BasicAuth(gin.Accounts{
 		username: password}),
