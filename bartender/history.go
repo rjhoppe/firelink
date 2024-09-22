@@ -2,6 +2,10 @@ package bartender
 
 import (
 	"container/list"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -29,7 +33,24 @@ func NewCache(capacity int) *Cache {
 	}
 }
 
-// Get retrieves a cached entry if it exists and is not expired
+// TODO
+func RestoreCache(capacity int) *Cache {
+	// var data DrinkResponse
+	filename := "cache.json"
+	dirPath, err := os.Getwd()
+	if err != nil {
+		fmt.Errorf("could not get cwd: %v", err)
+	}
+
+	// Need too parse each JSON record and set it in the newly created cache
+	filepath := filepath.Join(dirPath, "/bartender", filename)
+	c := NewCache(15)
+
+	fmt.Println(filepath, c.capacity)
+	return c
+}
+
+// Get retrieves a single cached entry if it exists and is not expired
 // Currently not used
 func (c *Cache) Get(key string) (DrinkResponse, bool) {
 	c.mu.Lock()
@@ -70,6 +91,33 @@ func (c *Cache) GetAll() map[string]DrinkResponse {
 		}
 	}
 	return allEntries
+}
+
+// Creates backup of cache in cache.json
+func BackupCache(data map[string]DrinkResponse) error {
+	dataBytes, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return fmt.Errorf("error marshaling JSON: %w", err)
+	}
+
+	filename := "cache.json"
+	dirPath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not get cwd: %v", err)
+	}
+
+	filepath := filepath.Join(dirPath, "/bartender", filename)
+
+	_, err = os.Stat(filepath)
+	if err == nil {
+		os.Remove(filepath)
+	}
+
+	err = os.WriteFile(filepath, dataBytes, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing JSON data to new persistent cache file: %v", err)
+	}
+	return nil
 }
 
 // Set adds or updates a cached entry with eviction policy

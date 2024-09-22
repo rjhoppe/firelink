@@ -25,7 +25,6 @@ func GetStructVals(s interface{}) string {
 	}
 
 	for i := 0; i < t.NumField(); i++ {
-		// field := t.Field(i).Name
 		value := v.Field(i)
 		if value.String() != " " {
 			result.WriteString(fmt.Sprintf("%v, ", value.Interface()))
@@ -33,3 +32,19 @@ func GetStructVals(s interface{}) string {
 	}
 	return result.String()
 }
+
+// func ParseJSONFile(filepath string, v interface{}) error {
+// 	// Read the entire file
+// 	fileData, err := os.ReadFile(filepath)
+// 	if err != nil {
+// 		return fmt.Errorf("error reading file: %w", err)
+// 	}
+
+// 	// Unmarshal the JSON data into the provided interface
+// 	err = json.Unmarshal(fileData, v)
+// 	if err != nil {
+// 		return fmt.Errorf("error unmarshaling JSON: %w", err)
+// 	}
+
+// 	return nil
+// }

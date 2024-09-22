@@ -1,0 +1,16 @@
+{
+    "Cranberry Cordial": {
+        "message": "Drink of the Day",
+        "name": "Cranberry Cordial",
+        "category": "Homemade Liqueur",
+        "ingredients": "1/2 kg chopped  Cranberries, 3/4 L  Sugar, 1/2 L  Light rum, ",
+        "instructions": "Place the chopped cranberries in a 2 liter jar that has a tight-fitting lid. Add the sugar and rum. Adjust the lid securely and place the jar in a cool, dark place. Invert the jar and shake it every day for six weeks. Strain the cordial into bottles and seal with corks."
+    },
+    "Death in the Afternoon": {
+        "message": "Drink of the Day",
+        "name": "Death in the Afternoon",
+        "category": "Cocktail",
+        "ingredients": "2 shots Absinthe, Top Champagne, ",
+        "instructions": "Easy as you like, pour the absinthe into a chilled glass, top with champagne. Must be drunk mid afternoon for the optimum effect."
+    }
+}

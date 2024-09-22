@@ -147,5 +147,7 @@ func GetRandomDrink(c *gin.Context, cache *Cache) {
 	// ttl working
 	ttl := time.Hour * 24 * 15
 	cache.Set(jsonResp.Name, jsonResp, ttl)
+	cacheData := cache.GetAll()
+	BackupCache(cacheData)
 	c.JSON(http.StatusOK, jsonResp)
 }

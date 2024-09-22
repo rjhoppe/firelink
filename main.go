@@ -21,6 +21,8 @@ func main() {
 	password := os.Getenv("GIN_PASSWORD")
 
 	r := gin.Default()
+
+	// Check if cache.json exists and handle
 	DrinkCache := bartender.NewCache(15) // Set cache capacity
 
 	r.POST("/help", gin.BasicAuth(gin.Accounts{
@@ -36,12 +38,12 @@ func main() {
 			books.CheckForBook(c, title)
 		})
 
-	r.POST("/ebook/dl/:title", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			title := c.Param("title")
-			books.GetBook(c, title)
-		})
+	// r.POST("/ebook/dl/:title", gin.BasicAuth(gin.Accounts{
+	// 	username: password}),
+	// 	func(c *gin.Context) {
+	// 		title := c.Param("title")
+	// 		books.GetBook(c, title)
+	// 	})
 
 	r.POST("/dinner/", gin.BasicAuth(gin.Accounts{
 		username: password}),
@@ -83,6 +85,8 @@ func main() {
 		func(c *gin.Context) {
 			return
 		})
+
+	// When ready to deploy ngrok
 
 	// ctx := context.Background()
 	// l, err := ngrok.Listen(ctx,
