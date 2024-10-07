@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rjhoppe/firelink/bartender"
 	"github.com/rjhoppe/firelink/books"
+	"github.com/rjhoppe/firelink/dinner"
 )
 
 func main() {
@@ -45,10 +46,17 @@ func main() {
 	// 		books.GetBook(c, title)
 	// 	})
 
-	r.POST("/dinner/", gin.BasicAuth(gin.Accounts{
+	r.POST("/dinner/random", gin.BasicAuth(gin.Accounts{
 		username: password}),
 		func(c *gin.Context) {
-			return
+			dinner.GetRandomRecipes(c)
+		})
+
+	r.POST("/dinner/recipe:id", gin.BasicAuth(gin.Accounts{
+		username: password}),
+		func(c *gin.Context) {
+			id := c.Param("id")
+			dinner.GetReipe(c, id)
 		})
 
 	r.GET("/bartender/random", gin.BasicAuth(gin.Accounts{
