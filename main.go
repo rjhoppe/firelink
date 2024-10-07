@@ -52,6 +52,13 @@ func main() {
 			dinner.GetRandomRecipes(c)
 		})
 
+	r.POST("/dinner/recipe:id", gin.BasicAuth(gin.Accounts{
+		username: password}),
+		func(c *gin.Context) {
+			id := c.Param("id")
+			dinner.GetReipe(c, id)
+		})
+
 	r.GET("/bartender/random", gin.BasicAuth(gin.Accounts{
 		username: password}),
 		func(c *gin.Context) {
