@@ -7,9 +7,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rjhoppe/firelink/bartender"
 	"github.com/rjhoppe/firelink/books"
 	"github.com/rjhoppe/firelink/dinner"
+	"github.com/rjhoppe/firelink/middleware"
+)
+
+var (
+	internalServerError = "Internal Server Error"
+	notFound            = "Not Found"
 )
 
 func main() {
@@ -23,8 +30,16 @@ func main() {
 
 	r := gin.Default()
 
+	middleware.PrometheusInit()
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// Middleware to track request metrics
+	r.Use(middleware.TrackMetrics())
+
 	// Check if cache.json exists and handle
 	DrinkCache := bartender.NewCache(15) // Set cache capacity
+	RecipeCache := dinner.NewCache(25)
 
 	r.POST("/help", gin.BasicAuth(gin.Accounts{
 		username: password}),
@@ -49,14 +64,20 @@ func main() {
 	r.POST("/dinner/random", gin.BasicAuth(gin.Accounts{
 		username: password}),
 		func(c *gin.Context) {
-			dinner.GetRandomRecipes(c)
+			dinner.GetRandomRecipes(c, RecipeCache)
 		})
 
-	r.POST("/dinner/recipe:id", gin.BasicAuth(gin.Accounts{
+	r.GET("/dinner/recipe/:id", gin.BasicAuth(gin.Accounts{
 		username: password}),
 		func(c *gin.Context) {
 			id := c.Param("id")
-			dinner.GetReipe(c, id)
+			dinner.GetRecipe(c, id, RecipeCache)
+		})
+
+	r.GET("/dinner/cache", gin.BasicAuth(gin.Accounts{
+		username: password}),
+		func(c *gin.Context) {
+			dinner.GetAllCachedRecipes(c, RecipeCache)
 		})
 
 	r.GET("/bartender/random", gin.BasicAuth(gin.Accounts{

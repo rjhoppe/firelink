@@ -150,3 +150,8 @@ func (c *Cache) Set(key string, record DrinkResponse, ttl time.Duration) {
 	elem := c.order.PushFront(entry)
 	c.data[record.Name] = elem
 }
+
+// Deletes the cache
+func (c *Cache) Delete() {
+	return
+}
