@@ -3,13 +3,16 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/rjhoppe/firelink/bartender"
 	"github.com/rjhoppe/firelink/books"
+	"github.com/rjhoppe/firelink/cache"
+	"github.com/rjhoppe/firelink/models"
+
 	"github.com/rjhoppe/firelink/dinner"
+	ginprometheus "github.com/zsais/go-gin-prometheus"
 )
 
 func main() {
@@ -18,99 +21,62 @@ func main() {
 		log.Fatalf("Error loading .env file: %s", err)
 	}
 
-	username := os.Getenv("GIN_USERNAME")
-	password := os.Getenv("GIN_PASSWORD")
-
 	r := gin.Default()
 
+	p := ginprometheus.NewPrometheus("gin")
+	p.Use(r)
+
 	// Check if cache.json exists and handle
-	DrinkCache := bartender.NewCache(15) // Set cache capacity
+	DrinkCache := cache.NewCache[models.DrinkResponse](15) // Set cache capacity
+	DinnerCache := cache.NewCache[models.RecipeInfo](15) // Set cache capacity
 
-	r.POST("/help", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"body": "List of endpoints..."})
-		})
+	// Returns a list of endpoints
+	r.POST("/help", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"body": "List of endpoints..."})
+	})
 
-	r.POST("/ebook/find/:title", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			title := c.Param("title")
-			books.CheckForBook(c, title)
-		})
+	// Checks if a book exists in the Gutenberg project
+	r.POST("/ebook/find/:title", func(c *gin.Context) {
+		title := c.Param("title")
+		books.CheckForBook(c, title)
+	})
 
-	// r.POST("/ebook/dl/:title", gin.BasicAuth(gin.Accounts{
-	// 	username: password}),
-	// 	func(c *gin.Context) {
-	// 		title := c.Param("title")
-	// 		books.GetBook(c, title)
-	// 	})
+	// r.POST("/ebook/dl/:title", func(c *gin.Context) {
+	// 	title := c.Param("title")
+	// 	books.GetBook(c, title)
+	// })
 
-	r.POST("/dinner/random", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			dinner.GetRandomRecipes(c)
-		})
+	// Returns a random recipe
+	r.POST("/dinner/random", func(c *gin.Context) {
+		dinner.GetRandomRecipes(c)
+	})
 
-	r.POST("/dinner/recipe:id", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			id := c.Param("id")
-			dinner.GetReipe(c, id)
-		})
+	// Returns a specific recipe based on id
+	r.POST("/dinner/recipe:id", func(c *gin.Context) {
+		id := c.Param("id")
+		dinner.GetRecipe(c, id, DinnerCache)
+	})
 
-	r.GET("/bartender/random", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			bartender.GetRandomDrink(c, DrinkCache)
-		})
+	// Returns a random drink
+	r.GET("/bartender/random", func(c *gin.Context) {
+		bartender.GetRandomDrink(c, DrinkCache)
+	})
 
 	// Saves last drink recipe to DB
-	// r.POST("/bartender/save", gin.BasicAuth(gin.Accounts{
-	// 	username: password}),
-	// 	func(c *gin.Context) {
-	// 		drink := c.Param("drink")
-	// 		bartender.SaveDrink(c, liquor)
-	// 	})
+	r.POST("/bartender/save", func(c *gin.Context) {
+		bartender.SaveDrinkToDB(c, DrinkCache)
+	})
 
 	// Returns the history for last 15 drinks
-	r.GET("/bartender/history", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			cachedDrinks := DrinkCache.GetAll()
-			c.JSON(http.StatusOK, cachedDrinks)
-		})
+	r.GET("/bartender/history", func(c *gin.Context) {
+		cachedDrinks := DrinkCache.GetAll()
+		c.JSON(http.StatusOK, cachedDrinks)
+	})
 
-	// r.POST("/bartender/:liquor", gin.BasicAuth(gin.Accounts{
-	// 	username: password}),
-	// 	func(c *gin.Context) {
-	// 		liquor := c.Param("liquor")
-	// 		bartender.MixMeADrink(c, liquor)
-	// 	})
+	// r.POST("/bartender/:liquor", func(c *gin.Context) {
+	// 	liquor := c.Param("liquor")
+	// 	bartender.MixMeADrink(c, liquor)
+	// })
 
-	r.POST("/network", gin.BasicAuth(gin.Accounts{
-		username: password}),
-		func(c *gin.Context) {
-			return
-		})
-
-	// When ready to deploy ngrok
-
-	// ctx := context.Background()
-	// l, err := ngrok.Listen(ctx,
-	// 	config.HTTPEndpoint(),
-	// 	ngrok.WithAuthtokenFromEnv(),
-	// )
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-
-	// log.Printf("public address: %s\n", l.Addr())
-
-	// if err := r.RunListener(l); err != nil {
-	// 	log.Fatalln(err)
-	// }
-
-	// for testing without ngrok
 	r.Run(":8080")
 }

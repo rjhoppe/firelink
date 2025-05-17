@@ -7,105 +7,121 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	spoonacular "github.com/ddsky/spoonacular-api-clients/go"
 	"github.com/gin-gonic/gin"
+	"github.com/rjhoppe/firelink/cache"
+	"github.com/rjhoppe/firelink/database"
+	"github.com/rjhoppe/firelink/models"
+	"github.com/rjhoppe/firelink/ntfy"
 )
 
-type RandomRecipes struct {
-	RecipeOne   string
-	RecipeTwo   string
-	RecipeThree string
-}
+var apiClient *spoonacular.APIClient
 
-type GetRecipeInfo struct {
-	Title        string
-	Id           int32
-	Url          string
-	Instructions string
-	Ingredients  string
-}
-
-func apiInit() *spoonacular.APIClient {
+func init() {
 	configuration := spoonacular.NewConfiguration()
 	configuration.AddDefaultHeader("x-api-key", os.Getenv("SPOONACULAR_API_KEY"))
-	client := spoonacular.NewAPIClient(configuration)
-	return client
+	apiClient = spoonacular.NewAPIClient(configuration)
 }
 
 func GetRandomRecipes(c *gin.Context) {
-	client := apiInit()
-	result, _, err := client.RecipesAPI.GetRandomRecipes(context.Background()).
+	result, _, err := apiClient.RecipesAPI.GetRandomRecipes(context.Background()).
 		Number(3).
 		Execute()
-
 	if err != nil {
-		fmt.Printf("Error returning recipes from GetRandomRecipes endpoint from Spoonacular: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching random recipes: %v", err)})
+		return
 	}
 
-	fmtRecipeOne := fmt.Sprintf("%v: %v", result.Recipes[0].Id, result.Recipes[0].Title)
-	fmtRecipeTwo := fmt.Sprintf("%v: %v", result.Recipes[1].Id, result.Recipes[1].Title)
-	fmtRecipeThree := fmt.Sprintf("%v: %v", result.Recipes[2].Id, result.Recipes[2].Title)
+	recipes := result.Recipes
+	if len(recipes) < 3 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Not enough recipes returned"})
+		return
+	}
 
-	jsonResp := RandomRecipes{
-		RecipeOne:   fmtRecipeOne,
-		RecipeTwo:   fmtRecipeTwo,
-		RecipeThree: fmtRecipeThree,
+	for _, recipe := range recipes {
+		ntfy.NtfyRandomRecipes(recipe.Id, recipe.Title)
+	}
+
+	jsonResp := models.RandomRecipes{
+		RecipeOne:   fmt.Sprintf("%v: %v", recipes[0].Id, recipes[0].Title),
+		RecipeTwo:   fmt.Sprintf("%v: %v", recipes[1].Id, recipes[1].Title),
+		RecipeThree: fmt.Sprintf("%v: %v", recipes[2].Id, recipes[2].Title),
 	}
 
 	c.JSON(http.StatusOK, jsonResp)
 }
 
-func GetReipe(c *gin.Context, recipeId string) {
-	var instructions string
-
+func GetRecipe(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo]) {
 	recipeIdInt64, err := strconv.ParseInt(recipeId, 10, 32)
 	if err != nil {
-		fmt.Println("Error converting string to int:", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid recipe ID"})
 		return
 	}
 
-	recipeIdInt32 := int32(recipeIdInt64)
-
-	client := apiInit()
-	result, _, err := client.RecipesAPI.GetRecipeInformation(context.Background(), recipeIdInt32).
-		Execute()
-
-	if err != nil {
-		fmt.Printf("Error returning recipe from GetRecipeInformation endpoint from Spoonacular: %v", err)
+	recipe, found := cache.Get(recipeId)
+	if found {
+		c.JSON(http.StatusOK, recipe)
+		return
 	}
 
+	result, _, err := apiClient.RecipesAPI.GetRecipeInformation(context.Background(), int32(recipeIdInt64)).Execute()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching recipe: %v", err)})
+		return
+	}
+
+	// Instructions
+	var instructions string
 	if result.Instructions.IsSet() {
-		instructions = ""
-		instructionsPtr := result.Instructions.Get()
-		instructionsStr := *instructionsPtr
-		instructionsSlice := strings.Split(instructionsStr, ".")
-		for i, step := range instructionsSlice {
-			if trimmedStep := strings.TrimSpace(step); trimmedStep != "" {
-				instructions = fmt.Sprintf("%v, %v", instructions, trimmedStep)
-				i++
+		instructionsStr := strings.TrimSpace(*result.Instructions.Get())
+		steps := strings.Split(instructionsStr, ".")
+		var cleanedSteps []string
+		for _, step := range steps {
+			if trimmed := strings.TrimSpace(step); trimmed != "" {
+				cleanedSteps = append(cleanedSteps, trimmed)
 			}
 		}
+		instructions = strings.Join(cleanedSteps, ". ")
 	}
 
-	ingredients := ""
-	ingredientList := result.GetExtendedIngredients()
-	for i, ingredient := range ingredientList {
-		ingredients = fmt.Sprintf("%v, %v%v of %v", ingredients, ingredient.Amount, ingredient.Unit, ingredient.Name)
-		i++
+	// Ingredients
+	var ingredients []string
+	for _, ingredient := range result.GetExtendedIngredients() {
+		ingredients = append(ingredients, fmt.Sprintf("%v%v of %v", ingredient.Amount, ingredient.Unit, ingredient.Name))
 	}
+	ingredientsStr := strings.Join(ingredients, ", ")
 
-	jsonResp := GetRecipeInfo{
+	ttl := 15 * 24 * time.Hour
+	data := models.RecipeInfo{
 		Title:        result.Title,
 		Id:           result.Id,
 		Url:          result.SourceUrl,
 		Instructions: instructions,
-		Ingredients:  ingredients,
+		Ingredients:  ingredientsStr,
 	}
-	c.JSON(http.StatusOK, jsonResp)
+	cache.Set(recipeId, data, ttl)
+	ntfy.NtfyRecipe(&data)
+	c.JSON(http.StatusOK, data)
 }
 
-// TODO
-// func SaveRecipe() {
 
-// }
+func SaveRecipe(c *gin.Context, cache *cache.Cache[models.RecipeInfo], recipe *models.RecipeInfo) {
+		// Check if drink already exists in DB by name
+		var existing models.Dinner
+		db := database.GetDB()
+		exists, err := database.CheckRecordExists(db, &existing)
+		if err == nil && exists {
+			c.JSON(200, gin.H{"message": "Dinner recipe already exists in database"})
+			return
+		}
+
+	database.SaveToDB(db, &models.Dinner{
+		Title:        recipe.Title,
+		ExternalId:   strconv.Itoa(int(recipe.Id)),
+		Url:          recipe.Url,
+		Instructions: recipe.Instructions,
+		Ingredients:  recipe.Ingredients,
+	})
+}
