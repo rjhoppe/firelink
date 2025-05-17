@@ -3,12 +3,14 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/rjhoppe/firelink/bartender"
 	"github.com/rjhoppe/firelink/books"
 	"github.com/rjhoppe/firelink/cache"
+	"github.com/rjhoppe/firelink/database"
 	"github.com/rjhoppe/firelink/models"
 
 	"github.com/rjhoppe/firelink/dinner"
@@ -31,12 +33,12 @@ func main() {
 	DinnerCache := cache.NewCache[models.RecipeInfo](15) // Set cache capacity
 
 	// Returns a list of endpoints
-	r.POST("/help", func(c *gin.Context) {
+	r.GET("/help", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"body": "List of endpoints..."})
 	})
 
 	// Checks if a book exists in the Gutenberg project
-	r.POST("/ebook/find/:title", func(c *gin.Context) {
+	r.GET("/ebook/find/:title", func(c *gin.Context) {
 		title := c.Param("title")
 		books.CheckForBook(c, title)
 	})
@@ -47,19 +49,29 @@ func main() {
 	// })
 
 	// Returns a random recipe
-	r.POST("/dinner/random", func(c *gin.Context) {
+	r.GET("/dinner/random", func(c *gin.Context) {
 		dinner.GetRandomRecipes(c)
 	})
 
 	// Returns a specific recipe based on id
-	r.POST("/dinner/recipe:id", func(c *gin.Context) {
+	r.GET("/dinner/recipe:id", func(c *gin.Context) {
 		id := c.Param("id")
-		dinner.GetRecipe(c, id, DinnerCache)
+		dinner.GetRecipeFromApi(c, id, DinnerCache)
+	})
+
+	// backup dinner cache
+	r.POST("/dinner/cache/backup", func(c *gin.Context) {
+		err := DinnerCache.BackupCache("/app/cache", DinnerCache.GetAll())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"body": "Dinner cache backup created successfully"})
+		}
 	})
 
 	// Returns a random drink
 	r.GET("/bartender/random", func(c *gin.Context) {
-		bartender.GetRandomDrink(c, DrinkCache)
+		bartender.GetRandomDrinkFromApi("",c, DrinkCache)
 	})
 
 	// Saves last drink recipe to DB
@@ -73,10 +85,31 @@ func main() {
 		c.JSON(http.StatusOK, cachedDrinks)
 	})
 
-	// r.POST("/bartender/:liquor", func(c *gin.Context) {
-	// 	liquor := c.Param("liquor")
-	// 	bartender.MixMeADrink(c, liquor)
-	// })
+	r.GET("/bartender/:liquor", func(c *gin.Context) {
+		liquor := c.Param("liquor")
+		bartender.GetRandomDrinkFromApi(liquor, c, DrinkCache)
+	})
+
+	// backup cache data
+	r.POST("/bartender/cache/backup", func(c *gin.Context) {
+		err := DrinkCache.BackupCache("/app/cache", DrinkCache.GetAll())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"body": "Drink cache backup created successfully"})
+		}
+	})
+
+	// backup database
+	r.POST("/database/backup", func(c *gin.Context) {
+		timestamp := time.Now().Format("2006-01-02_15-04-05")
+		err := database.BackupDB("db_backup_" + timestamp + ".sql")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"body": "Database backup created successfully"})
+		}
+	})
 
 	r.Run(":8080")
 }

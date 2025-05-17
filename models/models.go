@@ -24,7 +24,7 @@ type Drink struct {
 }
 
 type DrinkResponse struct {
-	Title        string `json:"message"`
+	Message      string `json:"message"`
 	ExternalId   string `json:"idDrink"`
 	Name         string `json:"name"`
 	Category     string `json:"category"`

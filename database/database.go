@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/rjhoppe/firelink/models"
+	"github.com/rjhoppe/firelink/ntfy"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -55,4 +58,30 @@ func CheckRecordExists[T any](db *gorm.DB, value *T) (bool, error) {
 
 func GetRecord(record interface{}) error {
 	return DB.First(record).Error
+}
+
+func BackupDB(filename string) error {
+	user := os.Getenv("POSTGRES_USER")
+	db := os.Getenv("POSTGRES_DB")
+	host := os.Getenv("POSTGRES_HOST")
+	password := os.Getenv("POSTGRES_PASSWORD")
+
+	cmd := exec.Command("pg_dump", "-U", user, "-h", host, db)
+	cmd.Env = append(os.Environ(), "PGPASSWORD="+password)
+
+	out, err := cmd.Output()
+	if err != nil {
+			return fmt.Errorf("pg_dump failed: %w", err)
+	}
+
+	fileLoc := filepath.Join("/app/database", filename)
+
+	// Write output to file
+	if err := os.WriteFile(fileLoc, out, 0644); err != nil {
+			return fmt.Errorf("failed to write backup file: %w", err)
+	}
+
+	ntfy.NtfyDBBackup(fileLoc)
+
+	return nil
 }

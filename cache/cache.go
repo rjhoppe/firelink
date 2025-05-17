@@ -37,15 +37,11 @@ func NewCache[T any](capacity int) *Cache[T] {
 // RestoreCache loads cache from disk if available.
 func RestoreCache[T any](capacity int, cacheDir string) (*Cache[T], error) {
 	filename := "cache.json"
-	dirPath, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("could not get cwd: %v", err)
-	}
-	filepath := filepath.Join(dirPath, cacheDir, filename)
+	fileLoc := filepath.Join("/app/", cacheDir, filename)
 
 	c := NewCache[T](capacity)
 
-	file, err := os.ReadFile(filepath)
+	file, err := os.ReadFile(fileLoc)
 	if err != nil {
 		// If file doesn't exist, just return empty cache
 		if os.IsNotExist(err) {
@@ -103,26 +99,22 @@ func (c *Cache[T]) GetAll() map[string]T {
 	return allEntries
 }
 
-// BackupCache creates a backup of the cache in cache.json.
-func (c *Cache[T]) BackupCache(data map[string]T) error {
+// BackupCache creates a backup of the cache as a cache.json. file
+func (c *Cache[T]) BackupCache(cacheDir string, data map[string]T) error {
+	filename := "cache.json"
+	fileLoc := filepath.Join("/app/", cacheDir, filename)
 	dataBytes, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return fmt.Errorf("error marshaling JSON: %w", err)
 	}
 
-	dirPath, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("could not get cwd: %v", err)
-	}
-	filepath := filepath.Join(dirPath, "bartender", "cache.json")
-
-	if _, err := os.Stat(filepath); err == nil {
-		if err := os.Remove(filepath); err != nil {
+	if _, err := os.Stat(fileLoc); err == nil {
+		if err := os.Remove(fileLoc); err != nil {
 			return fmt.Errorf("error removing old cache file: %v", err)
 		}
 	}
 
-	if err := os.WriteFile(filepath, dataBytes, 0644); err != nil {
+	if err := os.WriteFile(fileLoc, dataBytes, 0644); err != nil {
 		return fmt.Errorf("error writing JSON data to cache file: %v", err)
 	}
 	return nil

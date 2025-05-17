@@ -53,7 +53,13 @@ func GetRandomRecipes(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonResp)
 }
 
-func GetRecipe(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo]) {
+func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo]) {
+	cacheRecipe, found := cache.Get(recipeId)
+	if found {
+		c.JSON(http.StatusOK, cacheRecipe)
+		return
+	}
+	
 	recipeIdInt64, err := strconv.ParseInt(recipeId, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid recipe ID"})
@@ -106,6 +112,32 @@ func GetRecipe(c *gin.Context, recipeId string, cache *cache.Cache[models.Recipe
 	c.JSON(http.StatusOK, data)
 }
 
+func GetRecipeFromDB(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo]) {
+	cacheRecipe, found := cache.Get(recipeId)
+	if found {
+		c.JSON(http.StatusOK, cacheRecipe)
+		return
+	}
+
+	db := database.GetDB()
+	var recipe models.Dinner
+	db.Where("external_id = ?", recipeId).First(&recipe)
+	recipeIdInt, err := strconv.Atoi(recipe.ExternalId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error converting recipe ID: %v", err)})
+		return
+	}
+
+	recipeInfo := models.RecipeInfo{
+		Title:        recipe.Title,
+		Id:           int32(recipeIdInt),
+		Url:          recipe.Url,
+		Instructions: recipe.Instructions,
+		Ingredients:  recipe.Ingredients,
+	}
+	cache.Set(recipeId, recipeInfo, 0)
+	c.JSON(http.StatusOK, recipeInfo)
+}	
 
 func SaveRecipe(c *gin.Context, cache *cache.Cache[models.RecipeInfo], recipe *models.RecipeInfo) {
 		// Check if drink already exists in DB by name

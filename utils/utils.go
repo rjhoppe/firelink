@@ -32,3 +32,20 @@ func GetStructVals(s interface{}) string {
 	}
 	return result.String()
 }
+
+
+func ListAllEndpoints() []string {
+	return []string{
+		"/help",
+		"/ebook/find/:title",
+		"/ebook/download/:title",
+		"/bartender/random",
+		"/bartender/cache/backup",
+		"/bartender/history",
+		"/bartender/save",
+		"/dinner/random",
+		"/dinner/cache/backup",
+		"/dinner/recipe/:id",
+		"/database/backup",
+	}
+}
