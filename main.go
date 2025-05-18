@@ -25,6 +25,9 @@ func main() {
 
 	r := gin.Default()
 
+	// Initialize dinner client
+	dinner.InitializeClient()
+
 	p := ginprometheus.NewPrometheus("gin")
 	p.Use(r)
 
@@ -49,11 +52,6 @@ func main() {
 	// })
 
 	// Returns a random recipe
-	r.GET("/dinner/random", func(c *gin.Context) {
-		dinner.GetRandomRecipes(c)
-	})
-
-	// Test random recipe endpoint for cronjob schedule
 	r.GET("/dinner/random", func(c *gin.Context) {
 		dinner.GetRandomRecipes(c)
 	})

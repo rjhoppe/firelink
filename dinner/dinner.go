@@ -24,7 +24,16 @@ type SpoonacularClient interface {
 
 var apiClient SpoonacularClient
 
-func init() {
+func InitializeClient() {
+	if apiClient != nil {
+		return
+	}
+
+	apiKey := os.Getenv("SPOONACULAR_API_KEY")
+	if apiKey == "" {
+		fmt.Println("WARNING - SPOONACULAR_API_KEY is empty!")
+	}
+
 	configuration := spoonacular.NewConfiguration()
 	configuration.AddDefaultHeader("x-api-key", os.Getenv("SPOONACULAR_API_KEY"))
 	apiClient = spoonacular.NewAPIClient(configuration).RecipesAPI
