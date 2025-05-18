@@ -17,16 +17,21 @@ import (
 	"github.com/rjhoppe/firelink/ntfy"
 )
 
-var apiClient *spoonacular.APIClient
+type SpoonacularClient interface {
+	GetRandomRecipes(ctx context.Context) spoonacular.ApiGetRandomRecipesRequest
+	GetRecipeInformation(ctx context.Context, id int32) spoonacular.ApiGetRecipeInformationRequest
+}
+
+var apiClient SpoonacularClient
 
 func init() {
 	configuration := spoonacular.NewConfiguration()
 	configuration.AddDefaultHeader("x-api-key", os.Getenv("SPOONACULAR_API_KEY"))
-	apiClient = spoonacular.NewAPIClient(configuration)
+	apiClient = spoonacular.NewAPIClient(configuration).RecipesAPI
 }
 
 func GetRandomRecipes(c *gin.Context) {
-	result, _, err := apiClient.RecipesAPI.GetRandomRecipes(context.Background()).
+	result, _, err := apiClient.GetRandomRecipes(context.Background()).
 		Number(3).
 		Execute()
 	if err != nil {
@@ -59,7 +64,7 @@ func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models
 		c.JSON(http.StatusOK, cacheRecipe)
 		return
 	}
-	
+
 	recipeIdInt64, err := strconv.ParseInt(recipeId, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid recipe ID"})
@@ -72,7 +77,7 @@ func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models
 		return
 	}
 
-	result, _, err := apiClient.RecipesAPI.GetRecipeInformation(context.Background(), int32(recipeIdInt64)).Execute()
+	result, _, err := apiClient.GetRecipeInformation(context.Background(), int32(recipeIdInt64)).Execute()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching recipe: %v", err)})
 		return
@@ -137,17 +142,17 @@ func GetRecipeFromDB(c *gin.Context, recipeId string, cache *cache.Cache[models.
 	}
 	cache.Set(recipeId, recipeInfo, 0)
 	c.JSON(http.StatusOK, recipeInfo)
-}	
+}
 
 func SaveRecipe(c *gin.Context, cache *cache.Cache[models.RecipeInfo], recipe *models.RecipeInfo) {
-		// Check if drink already exists in DB by name
-		var existing models.Dinner
-		db := database.GetDB()
-		exists, err := database.CheckRecordExists(db, &existing)
-		if err == nil && exists {
-			c.JSON(200, gin.H{"message": "Dinner recipe already exists in database"})
-			return
-		}
+	// Check if drink already exists in DB by name
+	var existing models.Dinner
+	db := database.GetDB()
+	exists, err := database.CheckRecordExists(db, &existing)
+	if err == nil && exists {
+		c.JSON(200, gin.H{"message": "Dinner recipe already exists in database"})
+		return
+	}
 
 	database.SaveToDB(db, &models.Dinner{
 		Title:        recipe.Title,

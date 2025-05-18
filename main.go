@@ -30,7 +30,7 @@ func main() {
 
 	// Check if cache.json exists and handle
 	DrinkCache := cache.NewCache[models.DrinkResponse](15) // Set cache capacity
-	DinnerCache := cache.NewCache[models.RecipeInfo](15) // Set cache capacity
+	DinnerCache := cache.NewCache[models.RecipeInfo](15)   // Set cache capacity
 
 	// Returns a list of endpoints
 	r.GET("/help", func(c *gin.Context) {
@@ -53,6 +53,11 @@ func main() {
 		dinner.GetRandomRecipes(c)
 	})
 
+	// Test random recipe endpoint for cronjob schedule
+	r.GET("/dinner/random", func(c *gin.Context) {
+		dinner.GetRandomRecipes(c)
+	})
+
 	// Returns a specific recipe based on id
 	r.GET("/dinner/recipe:id", func(c *gin.Context) {
 		id := c.Param("id")
@@ -71,7 +76,7 @@ func main() {
 
 	// Returns a random drink
 	r.GET("/bartender/random", func(c *gin.Context) {
-		bartender.GetRandomDrinkFromApi("",c, DrinkCache)
+		bartender.GetRandomDrinkFromApi("", c, DrinkCache)
 	})
 
 	// Saves last drink recipe to DB
