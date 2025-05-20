@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,9 +33,30 @@ func main() {
 	p := ginprometheus.NewPrometheus("gin")
 	p.Use(r)
 
-	// Check if cache.json exists and handle
-	DrinkCache := cache.NewCache[models.DrinkResponse](15) // Set cache capacity
-	DinnerCache := cache.NewCache[models.RecipeInfo](15)   // Set cache capacity
+	var DrinkCache *cache.Cache[models.DrinkResponse]
+	var DinnerCache *cache.Cache[models.RecipeInfo]
+
+	// Check if drink_cache.json exists and handle
+	drinkCachePath := filepath.Join("/app/", "bartender", "cache.json")
+	if _, err := os.Stat(drinkCachePath); os.IsNotExist(err) {
+		DrinkCache = cache.NewCache[models.DrinkResponse](15)
+	} else {
+		DrinkCache, err = cache.RestoreCache[models.DrinkResponse](15, "bartender")
+		if err != nil {
+			DrinkCache = cache.NewCache[models.DrinkResponse](15)
+		}
+	}
+
+	// Check if dinner_cache.json exists and handle
+	dinnerCachePath := filepath.Join("/app/", "dinner", "cache.json")
+	if _, err := os.Stat(dinnerCachePath); os.IsNotExist(err) {
+		DinnerCache = cache.NewCache[models.RecipeInfo](15)
+	} else {
+		DinnerCache, err = cache.RestoreCache[models.RecipeInfo](15, "dinner")
+		if err != nil {
+			DinnerCache = cache.NewCache[models.RecipeInfo](15)
+		}
+	}
 
 	// Returns a list of endpoints
 	r.GET("/help", func(c *gin.Context) {

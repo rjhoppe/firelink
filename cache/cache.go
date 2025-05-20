@@ -57,7 +57,7 @@ func RestoreCache[T any](capacity int, cacheDir string) (*Cache[T], error) {
 
 	// Populate cache with loaded data (no expiry, or set a default expiry)
 	for key, record := range data {
-		c.Set(key, record, 24*time.Hour) // Set a default TTL
+		c.Set(key, record, 15*24*time.Hour) // Set a default TTL
 	}
 
 	return c, nil

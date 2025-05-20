@@ -9,20 +9,15 @@ import (
 	"strings"
 	"time"
 
-	spoonacular "github.com/ddsky/spoonacular-api-clients/go"
 	"github.com/gin-gonic/gin"
 	"github.com/rjhoppe/firelink/cache"
 	"github.com/rjhoppe/firelink/database"
 	"github.com/rjhoppe/firelink/models"
 	"github.com/rjhoppe/firelink/ntfy"
+	"github.com/rjhoppe/firelink/spoonacularapi"
 )
 
-type SpoonacularClient interface {
-	GetRandomRecipes(ctx context.Context) spoonacular.ApiGetRandomRecipesRequest
-	GetRecipeInformation(ctx context.Context, id int32) spoonacular.ApiGetRecipeInformationRequest
-}
-
-var apiClient SpoonacularClient
+var apiClient *spoonacularapi.Client
 
 func InitializeClient() {
 	if apiClient != nil {
@@ -34,15 +29,11 @@ func InitializeClient() {
 		fmt.Println("WARNING - SPOONACULAR_API_KEY is empty!")
 	}
 
-	configuration := spoonacular.NewConfiguration()
-	configuration.AddDefaultHeader("x-api-key", os.Getenv("SPOONACULAR_API_KEY"))
-	apiClient = spoonacular.NewAPIClient(configuration).RecipesAPI
+	apiClient = spoonacularapi.NewClient(apiKey)
 }
 
 func GetRandomRecipes(c *gin.Context) {
-	result, _, err := apiClient.GetRandomRecipes(context.Background()).
-		Number(3).
-		Execute()
+	result, err := apiClient.GetRandomRecipes(context.Background(), 3)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching random recipes: %v", err)})
 		return
@@ -80,13 +71,7 @@ func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models
 		return
 	}
 
-	recipe, found := cache.Get(recipeId)
-	if found {
-		c.JSON(http.StatusOK, recipe)
-		return
-	}
-
-	result, _, err := apiClient.GetRecipeInformation(context.Background(), int32(recipeIdInt64)).Execute()
+	result, err := apiClient.GetRecipeInformation(context.Background(), int32(recipeIdInt64))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching recipe: %v", err)})
 		return
