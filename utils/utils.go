@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 )
 
 func ContainsString(slice []string, value string) bool {
@@ -15,36 +13,27 @@ func ContainsString(slice []string, value string) bool {
 	return false
 }
 
-func GetStructVals(s interface{}) string {
-	var result strings.Builder
-	t := reflect.TypeOf(s)
-	v := reflect.ValueOf(s)
-	// Make sure we're dealing with a struct
-	if t.Kind() != reflect.Struct {
-		return ""
+func GetFieldValue(dataStruct interface{}, field string) string {
+	val := reflect.ValueOf(dataStruct)
+	f := val.FieldByName(field)
+	if f.IsValid() && f.Kind() == reflect.String {
+		return f.String()
 	}
-
-	for i := 0; i < t.NumField(); i++ {
-		value := v.Field(i)
-		if value.String() != " " {
-			result.WriteString(fmt.Sprintf("%v, ", value.Interface()))
-		}
-	}
-	return result.String()
+	return ""
 }
 
-// func ParseJSONFile(filepath string, v interface{}) error {
-// 	// Read the entire file
-// 	fileData, err := os.ReadFile(filepath)
-// 	if err != nil {
-// 		return fmt.Errorf("error reading file: %w", err)
-// 	}
-
-// 	// Unmarshal the JSON data into the provided interface
-// 	err = json.Unmarshal(fileData, v)
-// 	if err != nil {
-// 		return fmt.Errorf("error unmarshaling JSON: %w", err)
-// 	}
-
-// 	return nil
-// }
+func ListAllEndpoints() []string {
+	return []string{
+		"/help",
+		"/ebook/find/:title",
+		"/ebook/download/:title",
+		"/bartender/random",
+		"/bartender/cache/backup",
+		"/bartender/history",
+		"/bartender/save",
+		"/dinner/random",
+		"/dinner/cache/backup",
+		"/dinner/recipe/:id",
+		"/database/backup",
+	}
+}
