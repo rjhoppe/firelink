@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,16 +15,25 @@ import (
 	"github.com/rjhoppe/firelink/utils"
 )
 
+type DrinkService struct {
+	GetDrinkFunc          func(string, *gin.Context) (models.GetRandomDrinkAPI, error)
+	GatherIngredientsFunc func(models.GetRandomDrinkAPI) []string
+	SaveDrinkToDBFunc     func(c *gin.Context, cache *cache.Cache[models.DrinkResponse])
+	GetDrinkFromDBFunc    func(drinkName string, c *gin.Context, cache *cache.Cache[models.DrinkResponse])
+	GetAllCacheDrinksFunc func(c *gin.Context, cache *cache.Cache[models.DrinkResponse])
+	Notifier              ntfy.Notifier
+}
+
 // GatherIngredients builds a slice of non-empty ingredient strings.
-func GatherIngredients(drink models.GetRandomDrinkAPI) []string {
+func (s *DrinkService) GatherIngredients(drink models.GetRandomDrinkAPI) []string {
 	if len(drink.Drinks) == 0 {
 		return nil
 	}
 	d := drink.Drinks[0]
 	ingredients := []string{}
 	for i := 1; i <= 15; i++ {
-		measure := GetFieldValue(d, fmt.Sprintf("StrMeasure%d", i))
-		ingredient := GetFieldValue(d, fmt.Sprintf("StrIngredient%d", i))
+		measure := utils.GetFieldValue(d, fmt.Sprintf("StrMeasure%d", i))
+		ingredient := utils.GetFieldValue(d, fmt.Sprintf("StrIngredient%d", i))
 		if ingredient != "" {
 			ingredients = append(ingredients, fmt.Sprintf("%s %s", measure, ingredient))
 		}
@@ -32,18 +41,8 @@ func GatherIngredients(drink models.GetRandomDrinkAPI) []string {
 	return ingredients
 }
 
-// GetFieldValue uses reflection to get a field value by name from the drink struct.
-func GetFieldValue(drink interface{}, field string) string {
-	val := reflect.ValueOf(drink)
-	f := val.FieldByName(field)
-	if f.IsValid() && f.Kind() == reflect.String {
-		return f.String()
-	}
-	return ""
-}
-
 // GetDrink fetches a valid random drink from the API.
-func GetDrink(liquor string, c *gin.Context) (models.GetRandomDrinkAPI, error) {
+func (s *DrinkService) GetDrink(liquor string, c *gin.Context) (models.GetRandomDrinkAPI, error) {
 	url := "https://www.thecocktaildb.com/api/json/v1/1/random.php"
 	for {
 		resp, err := http.Get(url)
@@ -78,13 +77,13 @@ func GetDrink(liquor string, c *gin.Context) (models.GetRandomDrinkAPI, error) {
 }
 
 // GetRandomDrink handles the random drink endpoint.
-func GetRandomDrinkFromApi(liquor string, c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
-	drink, err := GetDrink(liquor, c)
+func (s *DrinkService) GetRandomDrinkFromApi(liquor string, c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
+	drink, err := s.GetDrinkFunc(liquor, c)
 	if err != nil {
 		return // Error already handled in getDrink
 	}
-	ingredients := GatherIngredients(drink)
-	ingredientsList := utils.GetStructVals(ingredients) // Consider changing this to just strings.Join(ingredients, ", ")
+	ingredients := s.GatherIngredientsFunc(drink)
+	ingredientsList := strings.Join(ingredients, ", ")
 	jsonResp := models.DrinkResponse{
 		Message:      "Drink of the Day",
 		ExternalId:   drink.Drinks[0].IDDrink,
@@ -96,12 +95,13 @@ func GetRandomDrinkFromApi(liquor string, c *gin.Context, cache *cache.Cache[mod
 	}
 	ttl := 15 * 24 * time.Hour
 	cache.Set(jsonResp.Name, jsonResp, ttl)
-	ntfy.NtfyDrinkOfTheDay(jsonResp)
+	ntfy.NtfyDrinkOfTheDay(jsonResp, ntfy.NewNotifier("drink"))
+	s.Notifier.SendMessage("Drink of the Day", jsonResp.Name)
 	c.JSON(http.StatusOK, jsonResp)
 }
 
 // Saves top drink record on the cache to db if not already present
-func SaveDrinkToDB(c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
+func (s *DrinkService) SaveDrinkToDB(c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
 	drink, found := cache.GetTop()
 	if !found {
 		c.JSON(404, gin.H{"error": "No drink found in cache"})
@@ -130,12 +130,12 @@ func SaveDrinkToDB(c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
 	c.JSON(201, gin.H{"message": msg})
 }
 
-func GetDrinkFromDB(drinkName string, c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
+func (s *DrinkService) GetDrinkFromDB(drinkName string, c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
 	db := database.GetDB()
 	var drink models.Drink
 	db.Where("name = ?", drinkName).First(&drink)
 	drinkResponse := models.DrinkResponse{
-		Message:        "Drink of the Day",
+		Message:      "Drink of the Day",
 		ExternalId:   drink.ExternalId,
 		Name:         drink.Name,
 		Category:     drink.Category,
@@ -148,12 +148,12 @@ func GetDrinkFromDB(drinkName string, c *gin.Context, cache *cache.Cache[models.
 }
 
 // GetAllCacheDrinks returns all drinks from the cache
-func GetAllCacheDrinks(c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
+func (s *DrinkService) GetAllCacheDrinks(c *gin.Context, cache *cache.Cache[models.DrinkResponse]) {
 	allDrinks := cache.GetAll()
 	drinkResponses := []models.DrinkResponse{}
 	for _, drink := range allDrinks {
 		drinkResponses = append(drinkResponses, drink)
 	}
-	ntfy.NtfyAllCacheDrinks(drinkResponses)
+	ntfy.NtfyAllCacheDrinks(drinkResponses, ntfy.NewNotifier("drink"))
 	c.JSON(http.StatusOK, drinkResponses)
 }

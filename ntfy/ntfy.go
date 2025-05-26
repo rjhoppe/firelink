@@ -105,8 +105,7 @@ func (n *NtfyNotifier) SendFile(fileLoc string) error {
 }
 
 // NtfyDrinkOfTheDay sends a drink notification using the Notifier interface
-func NtfyDrinkOfTheDay(drink models.DrinkResponse) {
-	notifier := NewNotifier("drink")
+func NtfyDrinkOfTheDay(drink models.DrinkResponse, notifier Notifier) {
 	msg := fmt.Sprintf(`
 Drink of the Day: %v
 Category: %v
@@ -120,8 +119,7 @@ Instructions: %v`, drink.Name, drink.Category, drink.Glass, drink.Ingredients, d
 }
 
 // NtfyRandomRecipes sends a random dinner notification using the Notifier interface
-func NtfyRandomRecipes(recipeId int32, recipeName string) {
-	notifier := NewNotifier("dinner")
+func NtfyRandomRecipes(recipeId int32, recipeName string, notifier Notifier) {
 	msg := fmt.Sprintf(`
 Dinner %v: %v`, recipeId, recipeName)
 	err := notifier.SendMessage("Recipe", msg)
@@ -131,10 +129,9 @@ Dinner %v: %v`, recipeId, recipeName)
 }
 
 // NtfyRecipe sends a dinner recipe notification using the Notifier interface
-func NtfyRecipe(recipe *models.RecipeInfo) {
-	notifier := NewNotifier("dinner")
+func NtfyRecipe(recipe *models.RecipeInfo, notifier Notifier) {
 	msg := fmt.Sprintf(`
-Dinner %v: %v
+Dinner %v: %d
 Ingredients: %v
 Instructions: %v
 Url: %v`, recipe.Title, recipe.Id, recipe.Ingredients, recipe.Instructions, recipe.Url)
@@ -144,8 +141,7 @@ Url: %v`, recipe.Title, recipe.Id, recipe.Ingredients, recipe.Instructions, reci
 	}
 }
 
-func NtfyAllCacheDrinks(drinks []models.DrinkResponse) {
-	notifier := NewNotifier("drink")
+func NtfyAllCacheDrinks(drinks []models.DrinkResponse, notifier Notifier) {
 	var msg strings.Builder
 
 	for i, drink := range drinks {
@@ -161,11 +157,11 @@ func NtfyAllCacheDrinks(drinks []models.DrinkResponse) {
 	}
 }
 
-func NtfyDBBackup(fileLoc string) {
-	notifier := NewNotifier("system")
+func NtfyDBBackup(fileLoc string, notifier Notifier) {
 	err := notifier.SendFile(fileLoc)
 	if err != nil {
 		log.Printf("Failed to send db backup notification: %v", err)
 	}
-}
 
+	_ = notifier.SendMessage("DB Backup", "DB Backup sent")
+}

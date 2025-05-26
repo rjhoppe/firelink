@@ -35,10 +35,21 @@ func TestCache_GetTop(t *testing.T) {
 	cache := NewCache[string](10)
 	cache.Set("test1", "test1", 10*time.Second)
 	cache.Set("test2", "test2", 10*time.Second)
+	top, found := cache.GetTop()
+	assert.True(t, found)
+	assert.Equal(t, "test2", top)
 	cache.Set("test3", "test3", 10*time.Second)
 	cache.Set("test4", "test4", 10*time.Second)
 	cache.Set("test5", "test5", 10*time.Second)
-	top, found := cache.GetTop()
-	assert.True(t, found)
-	assert.Equal(t, "test5", top)
+	secondTop, secondFound := cache.GetTop()
+	assert.True(t, secondFound)
+	assert.Equal(t, "test5", secondTop)
+}
+
+func TestCache_Clear(t *testing.T) {
+	cache := NewCache[string](10)
+	cache.Set("test1", "test1", 10*time.Second)
+	cache.Set("test2", "test2", 10*time.Second)
+	cache.Clear()
+	assert.Equal(t, 0, len(cache.GetAll()))
 }

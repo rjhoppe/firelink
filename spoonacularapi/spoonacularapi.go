@@ -17,12 +17,16 @@ import (
 type Recipe struct {
 	Id    int32  `json:"id"`
 	Title string `json:"title"`
-	// Add other fields you need
 }
 
 // RandomRecipesResponse represents the response from the random recipes endpoint
 type RandomRecipesResponse struct {
 	Recipes []Recipe `json:"recipes"`
+}
+
+// RecipeInformationResponse represents the response from the recipe information endpoint
+type RecipeInformationResponse struct {
+	Recipe RecipeInformationOverride `json:"recipe"`
 }
 
 // Client wraps the official Spoonacular client and adds custom methods
@@ -119,8 +123,25 @@ func (c *Client) GetRandomRecipes(ctx context.Context, number int) (*RandomRecip
 }
 
 // GetRecipeInformation gets information about a specific recipe
-// This method uses the official client as it doesn't have JSON parsing issues
-func (c *Client) GetRecipeInformation(ctx context.Context, id int32) (*spoonacular.RecipeInformation, error) {
-	result, _, err := c.apiClient.RecipesAPI.GetRecipeInformation(ctx, id).Execute()
-	return result, err
+func (c *Client) GetRecipeInformation(ctx context.Context, id int32) (*RecipeInformationResponse, error) {
+	url := fmt.Sprintf("%s/recipes/%d/information", c.baseURL, id)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("x-api-key", c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status code %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+	var info RecipeInformationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, err
+	}
+	return &info, nil
 }

@@ -71,17 +71,17 @@ func BackupDB(filename string) error {
 
 	out, err := cmd.Output()
 	if err != nil {
-			return fmt.Errorf("pg_dump failed: %w", err)
+		return fmt.Errorf("pg_dump failed: %w", err)
 	}
 
 	fileLoc := filepath.Join("/app/database", filename)
 
 	// Write output to file
 	if err := os.WriteFile(fileLoc, out, 0644); err != nil {
-			return fmt.Errorf("failed to write backup file: %w", err)
+		return fmt.Errorf("failed to write backup file: %w", err)
 	}
 
-	ntfy.NtfyDBBackup(fileLoc)
+	ntfy.NtfyDBBackup(fileLoc, ntfy.NewNotifier("system"))
 
 	return nil
 }

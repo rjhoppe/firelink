@@ -1,7 +1,9 @@
 package dinner
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	spoonacular "github.com/ddsky/spoonacular-api-clients/go"
 	"github.com/gin-gonic/gin"
 	"github.com/rjhoppe/firelink/cache"
 	"github.com/rjhoppe/firelink/models"
@@ -20,6 +23,30 @@ import (
 type MockSpoonacularClient struct {
 	*spoonacularapi.Client
 	MockServer *httptest.Server
+}
+
+type MockSpoonacularAdapter struct {
+	RecipeJSON string
+}
+
+func (m *MockSpoonacularAdapter) GetRecipeInformation(ctx context.Context, id int32) (*spoonacularapi.RecipeInformationOverride, error) {
+	var recipe spoonacularapi.RecipeInformationOverride
+	err := json.Unmarshal([]byte(m.RecipeJSON), &recipe)
+	return &recipe, err
+}
+
+func (m *MockSpoonacularAdapter) GetRandomRecipes(ctx context.Context, number int) (*spoonacularapi.RandomRecipesResponse, error) {
+	return &spoonacularapi.RandomRecipesResponse{}, nil
+}
+
+type ErrorMockSpoonacularAdapter struct{}
+
+func (m *ErrorMockSpoonacularAdapter) GetRecipeInformation(ctx context.Context, id int32) (*spoonacularapi.RecipeInformationOverride, error) {
+	return nil, fmt.Errorf("API error")
+}
+
+func (m *ErrorMockSpoonacularAdapter) GetRandomRecipes(ctx context.Context, number int) (*spoonacularapi.RandomRecipesResponse, error) {
+	return &spoonacularapi.RandomRecipesResponse{}, nil
 }
 
 // NewMockSpoonacularClient creates a new mock client for testing
@@ -55,7 +82,6 @@ func NewMockSpoonacularClient(t *testing.T, responseBody string) *MockSpoonacula
 
 func TestGetRandomRecipes(t *testing.T) {
 	// Fake Spoonacular API response
-
 	recipesJSON := `{
 		"recipes": [
 			{ "id": 1, "title": "Recipe 1" },
@@ -69,7 +95,9 @@ func TestGetRandomRecipes(t *testing.T) {
 	mockClient.Client.SetBaseURL(mockClient.MockServer.URL)
 	defer mockClient.MockServer.Close()
 
-	apiClient = mockClient.Client
+	adapter := &spoonacularapi.SpoonacularAdapter{
+		RealClient: mockClient.Client,
+	}
 
 	// Set up Gin context
 	gin.SetMode(gin.TestMode)
@@ -77,7 +105,7 @@ func TestGetRandomRecipes(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 
 	// Call the handler
-	GetRandomRecipes(c)
+	GetRandomRecipes(c, adapter)
 
 	// Assert the response
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -94,6 +122,15 @@ func TestGetRandomRecipes(t *testing.T) {
 }
 
 func TestGetRecipeFromApi_CacheHit(t *testing.T) {
+	// Create the mock client with our test data
+	mockClient := NewMockSpoonacularClient(t, "")
+	mockClient.Client.SetBaseURL(mockClient.MockServer.URL)
+	defer mockClient.MockServer.Close()
+
+	adapter := &spoonacularapi.SpoonacularAdapter{
+		RealClient: mockClient.Client,
+	}
+
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -103,7 +140,7 @@ func TestGetRecipeFromApi_CacheHit(t *testing.T) {
 	ttl := 5 * time.Minute
 	testCache.Set("123", testRecipe, ttl)
 
-	GetRecipeFromApi(c, "123", testCache)
+	GetRecipeFromApi(c, "123", testCache, adapter)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Brownies")
@@ -113,58 +150,76 @@ func TestGetRecipeFromApi_CacheHit(t *testing.T) {
 }
 
 func TestGetRecipeFromApi_CacheMiss(t *testing.T) {
-	// Fake Spoonacular API response for a single recipe
+	// Mock Spoonacular API response (matches expected structure)
 	data, err := os.ReadFile("testdata/recipe.json")
 	if err != nil {
-		t.Fatalf("Failed to read recipes.json: %v", err)
+		t.Fatalf("Failed to read recipe.json: %v", err)
 	}
+	adapter := &MockSpoonacularAdapter{RecipeJSON: string(data)}
 
-	recipeJSON := string(data)
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	testCache := cache.NewCache[models.RecipeInfo](10)
 
-	// Create the mock client with our test data
-	mockClient := NewMockSpoonacularClient(t, recipeJSON)
+	// Act
+	GetRecipeFromApi(c, "716429", testCache, adapter)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Parse the response body
+	var resp models.RecipeInfo
+	err = json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int32(716429), resp.Id)
+	assert.Equal(t, "Pasta with Garlic, Scallions, Cauliflower & Breadcrumbs", resp.Title)
+	assert.Contains(t, resp.Ingredients, "1tbsp of butter")
+	assert.Contains(t, resp.Instructions, "Preheat oven to 400 degrees")
+	assert.Contains(t, resp.Ingredients, "butter")
+	assert.Contains(t, resp.Ingredients, "scallions")
+}
+
+func TestGetRecipeFromApi_ApiError(t *testing.T) {
+	recipesJSON := `{
+		"recipes": [
+			{ "id": 1, "title": "Recipe 1" },
+			{ "id": 2, "title": "Recipe 2" },
+			{ "id": 3, "title": "Recipe 3" }
+		]
+	}`
+
+	// Simulate Spoonacular API error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "API error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// Set up the API client to use the test server
+	configuration := spoonacular.NewConfiguration()
+	configuration.Servers = []spoonacular.ServerConfiguration{
+		{URL: server.URL},
+	}
+	configuration.AddDefaultHeader("x-api-key", "fake-key")
+
+	mockClient := NewMockSpoonacularClient(t, recipesJSON)
 	mockClient.Client.SetBaseURL(mockClient.MockServer.URL)
 	defer mockClient.MockServer.Close()
 
-	apiClient = mockClient.Client
+	adapter := &ErrorMockSpoonacularAdapter{}
 
+	// Set up Gin context and cache
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
 	testCache := cache.NewCache[models.RecipeInfo](10)
 
-	GetRecipeFromApi(c, "999", testCache)
+	// Call the handler
+	GetRecipeFromApi(c, "999", testCache, adapter)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "API Recipe")
-	assert.Contains(t, w.Body.String(), "Sugar")
+	// Assert the response
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "Error fetching recipe")
 }
-
-// func TestGetRecipeFromApi_ApiError(t *testing.T) {
-// 	// Simulate Spoonacular API error
-// 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		http.Error(w, "API error", http.StatusInternalServerError)
-// 	}))
-// 	defer server.Close()
-
-// 	configuration := spoonacular.NewConfiguration()
-// 	configuration.Servers = []spoonacular.ServerConfiguration{
-// 		{URL: server.URL},
-// 	}
-// 	configuration.AddDefaultHeader("x-api-key", "fake-key")
-// 	apiClient = spoonacular.NewAPIClient(configuration).RecipesAPI
-
-// 	gin.SetMode(gin.TestMode)
-// 	w := httptest.NewRecorder()
-// 	c, _ := gin.CreateTestContext(w)
-
-// 	testCache := cache.NewCache[models.RecipeInfo](10)
-
-// 	GetRecipeFromApi(c, "999", testCache)
-
-// 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-// 	assert.Contains(t, w.Body.String(), "Error fetching recipe")
-// }
-
-// You can add similar tests for GetRecipeFromDB and SaveRecipe, using a test database or a mock DB if needed.

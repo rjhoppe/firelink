@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"github.com/rjhoppe/firelink/cache"
 	"github.com/rjhoppe/firelink/database"
 	"github.com/rjhoppe/firelink/models"
+	"github.com/rjhoppe/firelink/ntfy"
+	"github.com/rjhoppe/firelink/spoonacularapi"
 
 	"github.com/rjhoppe/firelink/dinner"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
@@ -28,7 +31,22 @@ func main() {
 	r := gin.Default()
 
 	// Initialize dinner client
-	dinner.InitializeClient()
+	apiKey := os.Getenv("SPOONACULAR_API_KEY")
+	if apiKey == "" {
+		fmt.Println("WARNING - SPOONACULAR_API_KEY is empty!")
+	}
+
+	apiClient := spoonacularapi.NewClient(apiKey)
+
+	adapter := &spoonacularapi.SpoonacularAdapter{
+		RealClient: apiClient,
+	}
+
+	// Initialize drink service
+	drinkService := &bartender.DrinkService{}
+	drinkService.GetDrinkFunc = drinkService.GetDrink
+	drinkService.GatherIngredientsFunc = drinkService.GatherIngredients
+	drinkService.Notifier = ntfy.NewNotifier("drink")
 
 	p := ginprometheus.NewPrometheus("gin")
 	p.Use(r)
@@ -76,13 +94,13 @@ func main() {
 
 	// Returns a random recipe
 	r.GET("/dinner/random", func(c *gin.Context) {
-		dinner.GetRandomRecipes(c)
+		dinner.GetRandomRecipes(c, adapter)
 	})
 
 	// Returns a specific recipe based on id
 	r.GET("/dinner/recipe:id", func(c *gin.Context) {
 		id := c.Param("id")
-		dinner.GetRecipeFromApi(c, id, DinnerCache)
+		dinner.GetRecipeFromApi(c, id, DinnerCache, adapter)
 	})
 
 	// backup dinner cache
@@ -97,12 +115,12 @@ func main() {
 
 	// Returns a random drink
 	r.GET("/bartender/random", func(c *gin.Context) {
-		bartender.GetRandomDrinkFromApi("", c, DrinkCache)
+		drinkService.GetRandomDrinkFromApi("", c, DrinkCache)
 	})
 
 	// Saves last drink recipe to DB
 	r.POST("/bartender/save", func(c *gin.Context) {
-		bartender.SaveDrinkToDB(c, DrinkCache)
+		drinkService.SaveDrinkToDB(c, DrinkCache)
 	})
 
 	// Returns the history for last 15 drinks
@@ -111,10 +129,11 @@ func main() {
 		c.JSON(http.StatusOK, cachedDrinks)
 	})
 
-	r.GET("/bartender/:liquor", func(c *gin.Context) {
-		liquor := c.Param("liquor")
-		bartender.GetRandomDrinkFromApi(liquor, c, DrinkCache)
-	})
+	// WIP: Get a drink of a specific liquor type from the API
+	// r.GET("/bartender/:liquor", func(c *gin.Context) {
+	// 	liquor := c.Param("liquor")
+	// 	bartender.GetRandomDrinkFromApi(liquor, c, DrinkCache)
+	// })
 
 	// backup cache data
 	r.POST("/bartender/cache/backup", func(c *gin.Context) {

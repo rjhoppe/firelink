@@ -165,3 +165,10 @@ func (c *Cache[T]) GetTop() (T, bool) {
 	entry := front.Value.(*CacheEntry[T])
 	return entry.Record, true
 }
+
+func (c *Cache[T]) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.data = make(map[string]*list.Element)
+	c.order.Init()
+}

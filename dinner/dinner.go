@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,22 +16,12 @@ import (
 	"github.com/rjhoppe/firelink/spoonacularapi"
 )
 
-var apiClient *spoonacularapi.Client
-
-func InitializeClient() {
-	if apiClient != nil {
-		return
-	}
-
-	apiKey := os.Getenv("SPOONACULAR_API_KEY")
-	if apiKey == "" {
-		fmt.Println("WARNING - SPOONACULAR_API_KEY is empty!")
-	}
-
-	apiClient = spoonacularapi.NewClient(apiKey)
+type SpoonacularClient interface {
+	GetRandomRecipes(ctx context.Context, count int) (*spoonacularapi.RandomRecipesResponse, error)
+	GetRecipeInformation(ctx context.Context, id int32) (*spoonacularapi.RecipeInformationOverride, error)
 }
 
-func GetRandomRecipes(c *gin.Context) {
+func GetRandomRecipes(c *gin.Context, apiClient SpoonacularClient) {
 	result, err := apiClient.GetRandomRecipes(context.Background(), 3)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching random recipes: %v", err)})
@@ -46,7 +35,7 @@ func GetRandomRecipes(c *gin.Context) {
 	}
 
 	for _, recipe := range recipes {
-		ntfy.NtfyRandomRecipes(recipe.Id, recipe.Title)
+		ntfy.NtfyRandomRecipes(recipe.Id, recipe.Title, ntfy.NewNotifier("dinner"))
 	}
 
 	jsonResp := models.RandomRecipes{
@@ -58,7 +47,7 @@ func GetRandomRecipes(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonResp)
 }
 
-func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo]) {
+func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo], apiClient SpoonacularClient) {
 	cacheRecipe, found := cache.Get(recipeId)
 	if found {
 		c.JSON(http.StatusOK, cacheRecipe)
@@ -73,27 +62,14 @@ func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models
 
 	result, err := apiClient.GetRecipeInformation(context.Background(), int32(recipeIdInt64))
 	if err != nil {
+		// Try to print the raw response if possible (if your client exposes it)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching recipe: %v", err)})
 		return
 	}
 
-	// Instructions
-	var instructions string
-	if result.Instructions.IsSet() {
-		instructionsStr := strings.TrimSpace(*result.Instructions.Get())
-		steps := strings.Split(instructionsStr, ".")
-		var cleanedSteps []string
-		for _, step := range steps {
-			if trimmed := strings.TrimSpace(step); trimmed != "" {
-				cleanedSteps = append(cleanedSteps, trimmed)
-			}
-		}
-		instructions = strings.Join(cleanedSteps, ". ")
-	}
-
 	// Ingredients
 	var ingredients []string
-	for _, ingredient := range result.GetExtendedIngredients() {
+	for _, ingredient := range result.ExtendedIngredients {
 		ingredients = append(ingredients, fmt.Sprintf("%v%v of %v", ingredient.Amount, ingredient.Unit, ingredient.Name))
 	}
 	ingredientsStr := strings.Join(ingredients, ", ")
@@ -101,13 +77,13 @@ func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models
 	ttl := 15 * 24 * time.Hour
 	data := models.RecipeInfo{
 		Title:        result.Title,
-		Id:           result.Id,
-		Url:          result.SourceUrl,
-		Instructions: instructions,
+		Id:           int32(result.ID),
+		Url:          result.SourceName,
+		Instructions: result.Instructions,
 		Ingredients:  ingredientsStr,
 	}
 	cache.Set(recipeId, data, ttl)
-	ntfy.NtfyRecipe(&data)
+	ntfy.NtfyRecipe(&data, ntfy.NewNotifier("dinner"))
 	c.JSON(http.StatusOK, data)
 }
 

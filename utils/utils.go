@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 )
 
 func ContainsString(slice []string, value string) bool {
@@ -15,24 +13,14 @@ func ContainsString(slice []string, value string) bool {
 	return false
 }
 
-func GetStructVals(s interface{}) string {
-	var result strings.Builder
-	t := reflect.TypeOf(s)
-	v := reflect.ValueOf(s)
-	// Make sure we're dealing with a struct
-	if t.Kind() != reflect.Struct {
-		return ""
+func GetFieldValue(dataStruct interface{}, field string) string {
+	val := reflect.ValueOf(dataStruct)
+	f := val.FieldByName(field)
+	if f.IsValid() && f.Kind() == reflect.String {
+		return f.String()
 	}
-
-	for i := 0; i < t.NumField(); i++ {
-		value := v.Field(i)
-		if value.String() != " " {
-			result.WriteString(fmt.Sprintf("%v, ", value.Interface()))
-		}
-	}
-	return result.String()
+	return ""
 }
-
 
 func ListAllEndpoints() []string {
 	return []string{
