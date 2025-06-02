@@ -96,7 +96,7 @@ func (s *DrinkService) GetRandomDrinkFromApi(liquor string, c *gin.Context, cach
 	ttl := 15 * 24 * time.Hour
 	cache.Set(jsonResp.Name, jsonResp, ttl)
 	ntfy.NtfyDrinkOfTheDay(jsonResp, ntfy.NewNotifier("drink"))
-	s.Notifier.SendMessage("Drink of the Day", jsonResp.Name)
+	// s.Notifier.SendMessage("Drink of the Day", jsonResp.Name)
 	c.JSON(http.StatusOK, jsonResp)
 }
 

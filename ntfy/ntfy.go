@@ -2,7 +2,6 @@ package ntfy
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -28,30 +27,19 @@ type NtfyNotifier struct {
 
 // Send sends a notification to the configured ntfy.sh topic
 func (n *NtfyNotifier) SendMessage(title, message string) error {
-	payload := map[string]string{
-		"topic": n.Topic,
-		"title": title,
-		"body":  message,
-	}
-
 	requestUrl := fmt.Sprintf("https://ntfy.rjhoppe.dev/%s", n.Topic)
-
-	jsonData, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshaling payload: %v", err)
-		return err
-	}
-
-	request, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", requestUrl, strings.NewReader(message))
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
 		return err
 	}
 
-	request.Header.Set("Content-Type", "application/json")
+	// ntfy understands special headers like Title, Priority, etc.
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("Title", title)
 
 	client := &http.Client{}
-	response, err := client.Do(request)
+	response, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error sending request: %v", err)
 		return err

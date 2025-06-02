@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	spoonacular "github.com/ddsky/spoonacular-api-clients/go"
 )
@@ -90,8 +91,11 @@ func (c *Client) SetBaseURL(url string) {
 // This is a custom implementation that doesn't rely on the official client
 func (c *Client) GetRandomRecipes(ctx context.Context, number int) (*RandomRecipesResponse, error) {
 	// Create request
-	url := fmt.Sprintf("%s/recipes/random?number=%d", c.baseURL, number)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	tags := "diner, main course"
+	escapedTags := url.QueryEscape(tags)
+
+	endpoint := fmt.Sprintf("%s/recipes/random?number=%d&tags=%s", c.baseURL, number, escapedTags)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}

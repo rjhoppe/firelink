@@ -29,7 +29,7 @@ WORKDIR /app
 COPY --from=builder /app/firelink .
 
 # Copy any static/config files you need (optional)
-COPY --from=builder /app/prometheus.yml .
+COPY --from=builder /app/prometheus.yaml .
 COPY --from=builder /app/database ./database
 COPY --from=builder /app/cache ./cache
 

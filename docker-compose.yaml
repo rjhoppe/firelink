@@ -6,8 +6,8 @@ services:
     # If you use environment variables for DB, etc.
     environment:
       - POSTGRES_HOST=postgres
-      - POSTGRES_USER=yourusername
-      - POSTGRES_PASSWORD=yourpassword
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
       - POSTGRES_DB=firelink
     # Uncomment if you want to wait for DB, etc.
     depends_on:
@@ -28,9 +28,9 @@ services:
   prometheus:
     image: prom/prometheus
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--config.file=/etc/prometheus/prometheus.yaml'
     ports:
       - "9090:9090"
     depends_on:
@@ -49,7 +49,7 @@ services:
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter
     environment:
-      - DATA_SOURCE_NAME=postgresql://yourusername:yourpassword@postgres:5432/firelink?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://admin:admin@postgres:5432/firelink?sslmode=disable
     ports:
       - "9187:9187"
     depends_on:

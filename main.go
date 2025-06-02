@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/rjhoppe/firelink/bartender"
 	"github.com/rjhoppe/firelink/books"
 	"github.com/rjhoppe/firelink/cache"
@@ -23,11 +21,6 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
-	}
-
 	r := gin.Default()
 
 	// Initialize dinner client
