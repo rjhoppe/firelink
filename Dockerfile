@@ -28,11 +28,6 @@ WORKDIR /app
 # Copy the built binary from the builder stage
 COPY --from=builder /app/firelink .
 
-# Copy any static/config files you need (optional)
-COPY --from=builder /app/prometheus.yml .
-COPY --from=builder /app/database ./database
-COPY --from=builder /app/cache ./cache
-
 # Expose the port your app runs on
 EXPOSE 8080
 
