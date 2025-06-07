@@ -27,7 +27,7 @@ func (m *MockNotifier) SendFile(fileLoc string) error {
 
 func TestNtfyDrinkOfTheDay(t *testing.T) {
 	drink := models.DrinkResponse{
-		Name:         "Drink of the Day",
+		Name:         "Test Mojito",
 		Category:     "Test Category",
 		Glass:        "Test Glass",
 		Ingredients:  "Test Ingredient 1, Test Ingredient 2",
@@ -39,13 +39,26 @@ func TestNtfyDrinkOfTheDay(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	assert.Equal(t, "Drink of the Day", mockNotifier.SentTitle)
-	assert.Equal(t, "\nDrink of the Day: Drink of the Day\nCategory: Test Category\nGlass: Test Glass\nIngredients: Test Ingredient 1, Test Ingredient 2\nInstructions: Test Instructions", mockNotifier.SentMessage)
+	expectedMessage := `Test Mojito
+
+👀 Category: Test Category
+
+🍸 Glass: Test Glass
+
+🛒 Ingredients:
+• Test Ingredient 1
+• Test Ingredient 2
+
+📝 Instructions:
+Test Instructions`
+
+	assert.Equal(t, "🍹 Drink of the Day", mockNotifier.SentTitle)
+	assert.Equal(t, expectedMessage, mockNotifier.SentMessage)
 }
 
 func TestNtfyDinner(t *testing.T) {
 	recipe := models.RecipeInfo{
-		Title:        "Recipe Title",
+		Title:        "Test Recipe Title",
 		Id:           123,
 		Url:          "https://www.google.com",
 		Instructions: "Test Instructions",
@@ -57,8 +70,20 @@ func TestNtfyDinner(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	assert.Equal(t, "Recipe", mockNotifier.SentTitle)
-	assert.Equal(t, "\nDinner Recipe Title: 123\nIngredients: Test Ingredient 1, Test Ingredient 2\nInstructions: Test Instructions\nUrl: https://www.google.com", mockNotifier.SentMessage)
+	expectedMessage := `Test Recipe Title
+
+📋 Recipe ID: 123
+
+🛒 Ingredients:
+Test Ingredient 1, Test Ingredient 2
+
+📝 Instructions:
+Test Instructions
+
+🌐 Source: https://www.google.com`
+
+	assert.Equal(t, "Recipe Info! 🍽️", mockNotifier.SentTitle)
+	assert.Equal(t, expectedMessage, mockNotifier.SentMessage)
 }
 
 func TestNtfyRandomRecipes(t *testing.T) {
@@ -68,7 +93,7 @@ func TestNtfyRandomRecipes(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	assert.Equal(t, "Recipe", mockNotifier.SentTitle)
-	assert.Equal(t, "\nDinner 123: Recipe Title", mockNotifier.SentMessage)
+	assert.Equal(t, "\n🍽️ Dinner 123: Recipe Title", mockNotifier.SentMessage)
 }
 
 func TestNtfyDBBackup(t *testing.T) {

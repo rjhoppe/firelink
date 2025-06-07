@@ -98,7 +98,7 @@ func main() {
 	})
 
 	// Returns a specific recipe based on id
-	r.GET("/dinner/recipe:id", func(c *gin.Context) {
+	r.GET("/dinner/recipe/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		dinner.GetRecipeFromApi(c, id, DinnerCache, adapter)
 	})

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	spoonacular "github.com/ddsky/spoonacular-api-clients/go"
 )
@@ -89,9 +90,10 @@ func (c *Client) SetBaseURL(url string) {
 // GetRandomRecipes gets random recipes from the Spoonacular API
 // This is a custom implementation that doesn't rely on the official client
 func (c *Client) GetRandomRecipes(ctx context.Context, number int) (*RandomRecipesResponse, error) {
-	// Create request
-	url := fmt.Sprintf("%s/recipes/random?number=%d", c.baseURL, number)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	hardcodedTag := "main course" // Change this to your desired tag
+	endpoint := fmt.Sprintf("%s/recipes/random?number=%d&tags=%s", c.baseURL, number, url.QueryEscape(hardcodedTag))
+
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -139,9 +141,9 @@ func (c *Client) GetRecipeInformation(ctx context.Context, id int32) (*RecipeInf
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API returned status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
-	var info RecipeInformationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	var recipeInfo RecipeInformationOverride
+	if err := json.NewDecoder(resp.Body).Decode(&recipeInfo); err != nil {
 		return nil, err
 	}
-	return &info, nil
+	return &RecipeInformationResponse{Recipe: recipeInfo}, nil
 }
