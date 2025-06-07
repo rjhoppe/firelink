@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -23,9 +22,10 @@ import (
 )
 
 func main() {
+	// Try to load .env file for local development (optional)
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+		log.Println("No .env file found, using environment variables")
 	}
 
 	r := gin.Default()
@@ -33,7 +33,7 @@ func main() {
 	// Initialize dinner client
 	apiKey := os.Getenv("SPOONACULAR_API_KEY")
 	if apiKey == "" {
-		fmt.Println("WARNING - SPOONACULAR_API_KEY is empty!")
+		log.Println("WARNING - SPOONACULAR_API_KEY is empty!")
 	}
 
 	apiClient := spoonacularapi.NewClient(apiKey)
