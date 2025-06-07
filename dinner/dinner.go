@@ -3,7 +3,9 @@ package dinner
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +17,26 @@ import (
 	"github.com/rjhoppe/firelink/ntfy"
 	"github.com/rjhoppe/firelink/spoonacularapi"
 )
+
+// cleanHTMLContent removes HTML tags and decodes HTML entities
+func cleanHTMLContent(content string) string {
+	// First decode HTML entities
+	decoded := html.UnescapeString(content)
+
+	// Remove HTML tags but convert list items to bullet points with newlines
+	listItemRegex := regexp.MustCompile(`<li>(.*?)</li>`)
+	decoded = listItemRegex.ReplaceAllString(decoded, "• $1\n")
+
+	// Remove remaining HTML tags
+	htmlTagRegex := regexp.MustCompile(`<[^>]*>`)
+	cleaned := htmlTagRegex.ReplaceAllString(decoded, "")
+
+	// Clean up extra whitespace but preserve newlines
+	cleaned = regexp.MustCompile(`[ \t]+`).ReplaceAllString(cleaned, " ")
+	cleaned = strings.TrimSpace(cleaned)
+
+	return cleaned
+}
 
 type SpoonacularClient interface {
 	GetRandomRecipes(ctx context.Context, count int) (*spoonacularapi.RandomRecipesResponse, error)
@@ -50,6 +72,7 @@ func GetRandomRecipes(c *gin.Context, apiClient SpoonacularClient) {
 func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models.RecipeInfo], apiClient SpoonacularClient) {
 	cacheRecipe, found := cache.Get(recipeId)
 	if found {
+		fmt.Printf("Found %v in cache!\n", recipeId)
 		c.JSON(http.StatusOK, cacheRecipe)
 		return
 	}
@@ -76,10 +99,10 @@ func GetRecipeFromApi(c *gin.Context, recipeId string, cache *cache.Cache[models
 
 	ttl := 15 * 24 * time.Hour
 	data := models.RecipeInfo{
-		Title:        result.Title,
+		Title:        cleanHTMLContent(result.Title),
 		Id:           int32(result.ID),
 		Url:          result.SourceName,
-		Instructions: result.Instructions,
+		Instructions: cleanHTMLContent(result.Instructions),
 		Ingredients:  ingredientsStr,
 	}
 	cache.Set(recipeId, data, ttl)

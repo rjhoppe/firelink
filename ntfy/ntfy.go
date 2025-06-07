@@ -2,7 +2,6 @@ package ntfy
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -28,27 +27,16 @@ type NtfyNotifier struct {
 
 // Send sends a notification to the configured ntfy.sh topic
 func (n *NtfyNotifier) SendMessage(title, message string) error {
-	payload := map[string]string{
-		"topic": n.Topic,
-		"title": title,
-		"body":  message,
-	}
-
 	requestUrl := fmt.Sprintf("https://ntfy.rjhoppe.dev/%s", n.Topic)
 
-	jsonData, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshaling payload: %v", err)
-		return err
-	}
-
-	request, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(jsonData))
+	request, err := http.NewRequest("POST", requestUrl, strings.NewReader(message))
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
 		return err
 	}
 
-	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Type", "text/plain")
+	request.Header.Set("Title", title)
 
 	client := &http.Client{}
 	response, err := client.Do(request)
@@ -104,15 +92,43 @@ func (n *NtfyNotifier) SendFile(fileLoc string) error {
 	return nil
 }
 
+// formatDrinkContent formats comma-separated ingredients into bullet points
+func formatDrinkContent(content string) string {
+	// Split by comma and create bullet points
+	items := strings.Split(content, ",")
+	var formatted []string
+	for _, item := range items {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			formatted = append(formatted, "• "+trimmed)
+		}
+	}
+	return strings.Join(formatted, "\n")
+}
+
 // NtfyDrinkOfTheDay sends a drink notification using the Notifier interface
 func NtfyDrinkOfTheDay(drink models.DrinkResponse, notifier Notifier) {
-	msg := fmt.Sprintf(`
-Drink of the Day: %v
-Category: %v
-Glass: %v
-Ingredients: %v
-Instructions: %v`, drink.Name, drink.Category, drink.Glass, drink.Ingredients, drink.Instructions)
-	err := notifier.SendMessage("Drink of the Day", msg)
+	// Format ingredients as bullet points
+	formattedIngredients := formatDrinkContent(drink.Ingredients)
+
+	msg := fmt.Sprintf(`%s
+
+👀 Category: %v
+
+🍸 Glass: %v
+
+🛒 Ingredients:
+%s
+
+📝 Instructions:
+%v`,
+		drink.Name,
+		drink.Category,
+		drink.Glass,
+		formattedIngredients,
+		drink.Instructions)
+
+	err := notifier.SendMessage("🍹 Drink of the Day", msg)
 	if err != nil {
 		log.Printf("Failed to send drink notification: %v", err)
 	}
@@ -121,7 +137,7 @@ Instructions: %v`, drink.Name, drink.Category, drink.Glass, drink.Ingredients, d
 // NtfyRandomRecipes sends a random dinner notification using the Notifier interface
 func NtfyRandomRecipes(recipeId int32, recipeName string, notifier Notifier) {
 	msg := fmt.Sprintf(`
-Dinner %v: %v`, recipeId, recipeName)
+🍽️ Dinner %v: %v`, recipeId, recipeName)
 	err := notifier.SendMessage("Recipe", msg)
 	if err != nil {
 		log.Printf("Failed to send dinner notification: %v", err)
@@ -130,12 +146,25 @@ Dinner %v: %v`, recipeId, recipeName)
 
 // NtfyRecipe sends a dinner recipe notification using the Notifier interface
 func NtfyRecipe(recipe *models.RecipeInfo, notifier Notifier) {
-	msg := fmt.Sprintf(`
-Dinner %v: %d
-Ingredients: %v
-Instructions: %v
-Url: %v`, recipe.Title, recipe.Id, recipe.Ingredients, recipe.Instructions, recipe.Url)
-	err := notifier.SendMessage("Recipe", msg)
+	// Create a nicely formatted message with all information
+	msg := fmt.Sprintf(`%s
+
+📋 Recipe ID: %d
+
+🛒 Ingredients:
+%s
+
+📝 Instructions:
+%s
+
+🌐 Source: %s`,
+		recipe.Title,
+		recipe.Id,
+		recipe.Ingredients,
+		recipe.Instructions,
+		recipe.Url)
+
+	err := notifier.SendMessage("Recipe Info! 🍽️", msg)
 	if err != nil {
 		log.Printf("Failed to send dinner notification: %v", err)
 	}

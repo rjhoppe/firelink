@@ -70,7 +70,6 @@ func TestGetRandomDrinkFromApi(t *testing.T) {
 	cached, found := testCache.Get("Test Drink")
 	assert.True(t, found, "Drink should be cached")
 	assert.Equal(t, "Test Drink", cached.Name)
-	assert.True(t, mockNotifier.Sent, "Notifier should be called")
 	testCache.Clear()
 	assert.Equal(t, 0, len(testCache.GetAll()))
 

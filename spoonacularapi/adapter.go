@@ -2,7 +2,6 @@ package spoonacularapi
 
 import (
 	"context"
-	"encoding/json"
 )
 
 type SpoonacularAdapter struct {
@@ -25,8 +24,5 @@ func ConvertToOverride(resp *RecipeInformationResponse) *RecipeInformationOverri
 	if resp == nil {
 		return nil
 	}
-	b, _ := json.Marshal(resp)
-	var override RecipeInformationOverride
-	json.Unmarshal(b, &override)
-	return &override
+	return &resp.Recipe
 }
