@@ -13,12 +13,13 @@ import (
 	"github.com/rjhoppe/firelink/books"
 	"github.com/rjhoppe/firelink/cache"
 	"github.com/rjhoppe/firelink/database"
+	"github.com/rjhoppe/firelink/healthcheck"
+	"github.com/rjhoppe/firelink/help"
 	"github.com/rjhoppe/firelink/models"
 	"github.com/rjhoppe/firelink/ntfy"
 	"github.com/rjhoppe/firelink/spoonacularapi"
 
 	"github.com/rjhoppe/firelink/dinner"
-	ginprometheus "github.com/zsais/go-gin-prometheus"
 )
 
 func main() {
@@ -48,9 +49,6 @@ func main() {
 	drinkService.GatherIngredientsFunc = drinkService.GatherIngredients
 	drinkService.Notifier = ntfy.NewNotifier("drink")
 
-	p := ginprometheus.NewPrometheus("gin")
-	p.Use(r)
-
 	var DrinkCache *cache.Cache[models.DrinkResponse]
 	var DinnerCache *cache.Cache[models.RecipeInfo]
 
@@ -78,7 +76,11 @@ func main() {
 
 	// Returns a list of endpoints
 	r.GET("/help", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"body": "List of endpoints..."})
+		help.Help(c)
+	})
+
+	r.GET("/healthcheck", func(c *gin.Context) {
+		healthcheck.Healthcheck(c)
 	})
 
 	// Checks if a book exists in the Gutenberg project
